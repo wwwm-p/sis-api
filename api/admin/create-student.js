@@ -3,6 +3,16 @@ import { neon } from "@neondatabase/serverless";
 const sql = neon(process.env.DATABASE_URL);
 
 export default async function handler(req, res) {
+
+  // Simple GET test
+  if (req.method === "GET") {
+    return res.status(200).json({
+      success: true,
+      message: "create-student endpoint is working"
+    });
+  }
+
+  // Only allow POST beyond this point
   if (req.method !== "POST") {
     return res.status(405).json({
       success: false,
@@ -11,51 +21,49 @@ export default async function handler(req, res) {
   }
 
   try {
+
     const {
-      student_id,
       first_name,
       last_name,
-      grade,
+      sis_student_id,
       counselor_id
     } = req.body;
 
-    if (!student_id || !first_name || !last_name) {
+    // Validation
+    if (!first_name || !last_name || !sis_student_id) {
       return res.status(400).json({
         success: false,
         error: "Missing required fields"
       });
     }
 
-    await sql`
+    // Insert student
+    const result = await sql`
       INSERT INTO students (
-        student_id,
         first_name,
         last_name,
-        grade,
+        sis_student_id,
         counselor_id
       )
       VALUES (
-        ${student_id},
         ${first_name},
         ${last_name},
-        ${grade},
+        ${sis_student_id},
         ${counselor_id}
       )
-      ON CONFLICT (student_id)
-      DO UPDATE SET
-        first_name = EXCLUDED.first_name,
-        last_name = EXCLUDED.last_name,
-        grade = EXCLUDED.grade,
-        counselor_id = EXCLUDED.counselor_id
+      RETURNING *
     `;
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
-      message: "Student created/updated"
+      student: result[0]
     });
 
   } catch (error) {
-    res.status(500).json({
+
+    console.error(error);
+
+    return res.status(500).json({
       success: false,
       error: error.message
     });
