@@ -4,15 +4,15 @@ const sql = neon(process.env.DATABASE_URL);
 
 export default async function handler(req, res) {
 
-  // Simple GET test
+  // TEST ROUTE
   if (req.method === "GET") {
     return res.status(200).json({
       success: true,
-      message: "create-student endpoint is working"
+      message: "create-student route works"
     });
   }
 
-  // Only allow POST beyond this point
+  // ONLY ALLOW POST
   if (req.method !== "POST") {
     return res.status(405).json({
       success: false,
@@ -23,29 +23,37 @@ export default async function handler(req, res) {
   try {
 
     const {
+      school_id,
       first_name,
       last_name,
       sis_student_id,
       counselor_id
     } = req.body;
 
-    // Validation
-    if (!first_name || !last_name || !sis_student_id) {
+    // REQUIRED FIELDS
+    if (
+      !school_id ||
+      !first_name ||
+      !last_name ||
+      !sis_student_id
+    ) {
       return res.status(400).json({
         success: false,
         error: "Missing required fields"
       });
     }
 
-    // Insert student
+    // INSERT STUDENT
     const result = await sql`
       INSERT INTO students (
+        school_id,
         first_name,
         last_name,
         sis_student_id,
         counselor_id
       )
       VALUES (
+        ${school_id},
         ${first_name},
         ${last_name},
         ${sis_student_id},
