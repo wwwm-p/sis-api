@@ -1,48 +1,26 @@
-import pkg from 'pg'
-import bcrypt from 'bcrypt'
-import jwt from 'jsonwebtoken'
-
-const { Pool } = pkg
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL
-})
+import jwt from "jsonwebtoken";
+import { db } from "../../db/db";
 
 export default async function handler(req, res) {
-  try {
-    const { email, password } = req.body
+  const { email, password } = req.body;
 
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Missing credentials' })
-    }
+  const user = await db.query(
+    "SELECT * FROM users WHERE email=$1",
+    [email]
+  );
 
-    const result = await pool.query(
-      'SELECT * FROM users WHERE email=$1',
-      [email]
-    )
-
-    if (!result.rows.length) {
-      return res.status(401).json({ error: 'User not found' })
-    }
-
-    const user = result.rows[0]
-
-    const valid = await bcrypt.compare(password, user.password_hash || '')
-    if (!valid) {
-      return res.status(401).json({ error: 'Invalid password' })
-    }
-
-    const token = jwt.sign(
-      {
-        id: user.id,
-        role: user.role,
-        school_id: user.school_id
-      },
-      process.env.JWT_SECRET
-    )
-
-    res.status(200).json({ token, user })
-  } catch (err) {
-    res.status(500).json({ error: err.message })
+  if (!user.rows[0]) {
+    return res.status(401).json({ error: "Invalid login" });
   }
+
+  const token = jwt.sign(
+    {
+      id: user.rows[0].id,
+      role: user.rows[0].role,
+      school_id: user.rows[0].school_id
+    },
+    process.env.JWT_SECRET
+  );
+
+  res.json({ token });
 }
