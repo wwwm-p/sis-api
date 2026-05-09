@@ -1,29 +1,82 @@
-import { db } from "../../db/db";
+import { db } from "../../db/db.js";
+
+import { requireAuth } from "../../middleware/requireAuth.js";
+import { requireSchool } from "../../middleware/requireSchool.js";
+
+import { requireFields } from "../../lib/validators.js";
+import { success, error } from "../../lib/responses.js";
+
+import { getAssignedCounselor } from "../../services/assignmentService.js";
+import { createAssessment } from "../../services/assessmentService.js";
 
 export default async function handler(req, res) {
-  const { studentId, reason, urgency } = req.body;
+  try {
+    // METHOD CHECK
+    if (req.method !== "POST") {
+      return error(res, "Method not allowed", 405);
+    }
 
-  // 1. get counselor
-  const counselor = await db.query(
-    `SELECT counselor_id FROM counselor_assignments
-     WHERE student_id=$1 AND active=true`,
-    [studentId]
-  );
+    // AUTH
+    const user = await requireAuth(req);
 
-  const counselorId = counselor.rows[0].counselor_id;
+    // SCHOOL CONTEXT
+    const schoolId = requireSchool(req);
 
-  // 2. check crisis
-  const isCrisis = urgency === "crisis";
+    // BODY
+    const {
+      reason,
+      urgency,
+      notes,
+    } = req.body;
 
-  // 3. insert assessment
-  const assessment = await db.query(
-    `INSERT INTO assessments
-     (student_id, counselor_id, reason, urgency, crisis)
-     VALUES ($1,$2,$3,$4,$5)
-     RETURNING *`,
-    [studentId, counselorId, reason, urgency, isCrisis]
-  );
+    // VALIDATION
+    requireFields(req.body, ["reason", "urgency"]);
 
-  // 4. return result
-  res.json(assessment.rows[0]);
+    // FIND ASSIGNED COUNSELOR
+    const counselor = await getAssignedCounselor(
+      db,
+      user.id,
+      schoolId
+    );
+
+    if (!counselor) {
+      return error(
+        res,
+        "No assigned counselor found",
+        404
+      );
+    }
+
+    // CRISIS CHECK
+    const isCrisis =
+      urgency === "crisis" ||
+      urgency === "high";
+
+    // CREATE ASSESSMENT
+    const assessment = await createAssessment(db, {
+      schoolId,
+      studentId: user.id,
+      counselorId: counselor.id,
+      reason,
+      urgency,
+      notes,
+      isCrisis,
+    });
+
+    // FUTURE:
+    // emit crisis event
+    // send notification
+    // realtime push
+
+    return success(res, assessment);
+
+  } catch (err) {
+    console.error(err);
+
+    return error(
+      res,
+      err.message || "Internal server error",
+      500
+    );
+  }
 }
