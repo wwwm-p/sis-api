@@ -1,52 +1,21 @@
-// services/assessmentService.js
-
-export async function createAssessment(db, data) {
-  const {
-    studentId,
-    counselorId,
-    reason,
-    urgency,
-  } = data;
-
-  const isCrisis = urgency === "crisis";
-
+export async function getAssignedCounselor(
+  db,
+  studentId,
+  schoolId
+) {
   const result = await db.query(
     `
-    INSERT INTO assessments
-    (student_id, counselor_id, reason, urgency, crisis)
-    VALUES ($1, $2, $3, $4, $5)
-    RETURNING *
+    SELECT c.*
+    FROM counselor_assignments ca
+    JOIN counselors c
+      ON c.id = ca.counselor_id
+    WHERE ca.student_id = $1
+      AND ca.school_id = $2
+      AND ca.active = true
+    LIMIT 1
     `,
-    [studentId, counselorId, reason, urgency, isCrisis]
+    [studentId, schoolId]
   );
 
   return result.rows[0];
-}
-
-export async function getAssessmentsForCounselor(db, counselorId) {
-  const result = await db.query(
-    `
-    SELECT *
-    FROM assessments
-    WHERE counselor_id = $1
-    ORDER BY created_at DESC
-    `,
-    [counselorId]
-  );
-
-  return result.rows;
-}
-
-export async function getAssessmentsForStudent(db, studentId) {
-  const result = await db.query(
-    `
-    SELECT *
-    FROM assessments
-    WHERE student_id = $1
-    ORDER BY created_at DESC
-    `,
-    [studentId]
-  );
-
-  return result.rows;
 }
