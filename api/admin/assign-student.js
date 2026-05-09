@@ -1,28 +1,22 @@
-import pkg from 'pg'
-
-const { Pool } = pkg
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL
-})
+import { db } from "../../db/db";
 
 export default async function handler(req, res) {
-  try {
-    const { student_id, counselor_id } = req.body
+  const { studentId, counselorId } = req.body;
 
-    if (!student_id || !counselor_id) {
-      return res.status(400).json({ error: 'Missing fields' })
-    }
+  await db.query(
+    `UPDATE counselor_assignments
+     SET active=false
+     WHERE student_id=$1`,
+    [studentId]
+  );
 
-    await pool.query(
-      `UPDATE students
-       SET counselor_id=$1
-       WHERE id=$2`,
-      [counselor_id, student_id]
-    )
+  const result = await db.query(
+    `INSERT INTO counselor_assignments
+     (student_id, counselor_id, active)
+     VALUES ($1,$2,true)
+     RETURNING *`,
+    [studentId, counselorId]
+  );
 
-    res.status(200).json({ success: true })
-  } catch (err) {
-    res.status(500).json({ error: err.message })
-  }
+  res.json(result.rows[0]);
 }
