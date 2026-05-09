@@ -1,32 +1,15 @@
-import pkg from 'pg'
-
-const { Pool } = pkg
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL
-})
+import { db } from "../../db/db";
 
 export default async function handler(req, res) {
-  try {
-    const { school_id } = req.query
+  const studentId = req.query.studentId;
 
-    if (!school_id) {
-      return res.status(400).json({ error: 'Missing school_id' })
-    }
+  const result = await db.query(
+    `SELECT c.*
+     FROM counselor_assignments ca
+     JOIN counselors c ON c.id = ca.counselor_id
+     WHERE ca.student_id = $1 AND ca.active = true`,
+    [studentId]
+  );
 
-    const result = await pool.query(
-      `SELECT id, name
-       FROM users
-       WHERE role = 'counselor'
-       AND is_visible = true
-       AND school_id = $1
-       ORDER BY name ASC`,
-      [school_id]
-    )
-
-    res.status(200).json(result.rows)
-
-  } catch (err) {
-    res.status(500).json({ error: err.message })
-  }
+  res.json(result.rows[0]);
 }
