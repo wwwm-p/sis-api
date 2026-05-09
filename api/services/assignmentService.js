@@ -1,39 +1,28 @@
-// services/assignmentService.js
-
-export async function getCounselorForStudent(db, studentId) {
+export async function createAssessment(db, data) {
   const result = await db.query(
     `
-    SELECT counselor_id
-    FROM counselor_assignments
-    WHERE student_id = $1 AND active = true
-    LIMIT 1
-    `,
-    [studentId]
-  );
-
-  return result.rows[0] || null;
-}
-
-export async function assignStudentToCounselor(db, studentId, counselorId) {
-  // deactivate old assignment
-  await db.query(
-    `
-    UPDATE counselor_assignments
-    SET active = false
-    WHERE student_id = $1
-    `,
-    [studentId]
-  );
-
-  // create new assignment
-  const result = await db.query(
-    `
-    INSERT INTO counselor_assignments
-    (student_id, counselor_id, active)
-    VALUES ($1, $2, true)
+    INSERT INTO assessments (
+      school_id,
+      student_id,
+      counselor_id,
+      reason,
+      urgency,
+      notes,
+      is_crisis,
+      created_at
+    )
+    VALUES ($1,$2,$3,$4,$5,$6,$7,NOW())
     RETURNING *
     `,
-    [studentId, counselorId]
+    [
+      data.schoolId,
+      data.studentId,
+      data.counselorId,
+      data.reason,
+      data.urgency,
+      data.notes,
+      data.isCrisis,
+    ]
   );
 
   return result.rows[0];
